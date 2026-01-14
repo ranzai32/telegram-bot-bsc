@@ -58,7 +58,7 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
     
     config_text = (
         f"{'✅ ' + confirmation_text + chr(10) + chr(10) if confirmation_text else ''}"
-        f"🎯 **Token Analysis Complete**\n\n"
+        f"🎯 **Token is valid**\n\n"
         f"✅ Verified & Ready for Volume Boost\n"
         f"🔗 CA: [{token_ca[:10]}...{token_ca[-8:]}]({dex_link})\n\n"
         f"⚙️ **Current Configuration:**\n"
@@ -154,7 +154,7 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dex_link = f"https://dexscreener.com/bsc/{token_ca}"
         
         config_message = await update.message.reply_text(
-            f"🎯 **Token Analysis Complete**\n\n"
+            f"🎯 **Token is valid**\n\n"
             f"✅ Verified & Ready for Volume Boost\n"
             f"📊 Active Pools: {pools_count}\n"
             f"🔗 CA: [{token_ca[:10]}...{token_ca[-8:]}]({dex_link})\n\n"
