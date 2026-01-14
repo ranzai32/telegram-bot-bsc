@@ -72,11 +72,9 @@ class BackendAPI:
         return response.json()
     
     async def get_session_status(self, telegram_id: int) -> Dict[str, Any]:
-        """Get session status. Used for long-polling."""
-        # Backend uses GET but accepts JSON body (non-standard but works)
+        """Get session status"""
         payload = {"user_telegram_id": telegram_id}
-        response = await self.client.request(
-            "GET",
+        response = await self.client.post(
             f"{self.base_url}/bot/session/status",
             json=payload
         )

@@ -26,6 +26,21 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
     
     token_ca = session.token_ca
     
+    # Get session status
+    try:
+        status_data = await api.get_session_status(telegram_id)
+        status = status_data.get("status", "Not Started")
+        if status == "InProcess":
+            status_text = "🔄 In Progress"
+        elif isinstance(status, dict) and "Success" in status:
+            status_text = "✅ Completed"
+        elif isinstance(status, dict) and "Error" in status:
+            status_text = "❌ Error"
+        else:
+            status_text = "⚪️ Not Started"
+    except:
+        status_text = "⚪️ Not Started"
+    
     # Get balance
     try:
         balance_data = await api.check_wallet_balance(telegram_id)
@@ -58,14 +73,16 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
     
     config_text = (
         f"{'✅ ' + confirmation_text + chr(10) + chr(10) if confirmation_text else ''}"
-        f"🎯 **Token is valid**\n\n"
+        f"🎯 **Token Analysis Complete**\n\n"
         f"✅ Verified & Ready for Volume Boost\n"
         f"🔗 CA: [{token_ca[:10]}...{token_ca[-8:]}]({dex_link})\n\n"
         f"⚙️ **Current Configuration:**\n"
         f"{pump_indicator} Pump Amount: **{pump_amount_bnb} BNB**\n"
         f"{swap_indicator} Swap Amount: **{swap_amount_bnb} BNB**\n"
         f"{delay_indicator} Delay: **{delay_seconds}s**\n\n"
+        f"📊 Status: {status_text}\n"
         f"💰 Balance: **{balance_bnb} BNB**\n\n"
+        f"👇 Configure amounts or start pumping:"
     )
     
     # Get saved message_id to update it
@@ -122,6 +139,21 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if session:
             session.token_ca = token_ca
         
+        # Get session status
+        try:
+            status_data = await api.get_session_status(telegram_id)
+            status = status_data.get("status", "Not Started")
+            if status == "InProcess":
+                status_text = "🔄 In Progress"
+            elif isinstance(status, dict) and "Success" in status:
+                status_text = "✅ Completed"
+            elif isinstance(status, dict) and "Error" in status:
+                status_text = "❌ Error"
+            else:
+                status_text = "⚪️ Not Started"
+        except:
+            status_text = "⚪️ Not Started"
+        
         # Get current balance
         try:
             balance_data = await api.check_wallet_balance(telegram_id)
@@ -154,7 +186,7 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dex_link = f"https://dexscreener.com/bsc/{token_ca}"
         
         config_message = await update.message.reply_text(
-            f"🎯 **Token is valid**\n\n"
+            f"🎯 **Token Analysis Complete**\n\n"
             f"✅ Verified & Ready for Volume Boost\n"
             f"📊 Active Pools: {pools_count}\n"
             f"🔗 CA: [{token_ca[:10]}...{token_ca[-8:]}]({dex_link})\n\n"
@@ -162,7 +194,9 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{pump_indicator} Pump Amount: **{pump_amount_bnb} BNB**\n"
             f"{swap_indicator} Swap Amount: **{swap_amount_bnb} BNB**\n"
             f"{delay_indicator} Delay: **{delay_seconds}s**\n\n"
-            f"💰 Balance: **{balance_bnb} BNB**\n\n",
+            f"📊 Status: {status_text}\n"
+            f"💰 Balance: **{balance_bnb} BNB**\n\n"
+            f"👇 Configure amounts or start pumping:",
             parse_mode='Markdown',
             reply_markup=get_pump_config_keyboard(),
             disable_web_page_preview=True
