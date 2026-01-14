@@ -1,5 +1,3 @@
-"""Start command and wallet initialization handler"""
-
 import logging
 import os
 from pathlib import Path
@@ -13,7 +11,6 @@ from keyboards.inline import get_refresh_keyboard
 
 logger = logging.getLogger(__name__)
 
-# Path to welcome image
 WELCOME_IMAGE_PATH = Path(__file__).parent.parent / "assets" / "welcome.jpg"
 
 
@@ -22,23 +19,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     telegram_id = user.id
     
-    # Create or get user wallet
     try:
         wallet_data = await api.get_or_create_wallet(telegram_id)
         wallet_address = wallet_data["wallet_dto"]["evm_address"]
         
-        # Check balance
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_ui = balance_data["ui"]
-        # Format balance to max 3 decimal places
+
         try:
             balance_formatted = f"{float(balance_ui):.3f}"
             balance_float = float(balance_ui)
         except:
             balance_formatted = balance_ui
             balance_float = 0.0
-        
-        # Different message based on balance
+
         if balance_float >= 0.097:
             welcome_text = (
                 f"💼 Your wallet: `{wallet_address}`\n"
@@ -59,8 +53,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ Minimum required: 0.097 BNB"
             )
         
-        # Send photo with caption if image exists
-        # Add Refresh button if balance is insufficient
         reply_markup = get_refresh_keyboard() if balance_float < 0.097 else None
         
         if WELCOME_IMAGE_PATH.exists():
@@ -72,14 +64,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=reply_markup
                 )
         else:
-            # Fallback to text-only if image not found
             await update.message.reply_text(
                 welcome_text,
                 parse_mode='Markdown',
                 reply_markup=reply_markup
             )
         
-        # Initialize user session
         session_storage.create(telegram_id)
         
         return ConversationState.WAITING_TOKEN_CA
@@ -135,13 +125,13 @@ async def   balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         balance_ui = balance_data["ui"]
         balance_wei = balance_data["raw"]
         
-        # Format balance to max 3 decimal places
+        # format balance to max 3 decimal places
         try:
             balance_formatted = f"{float(balance_ui):.3f}"
         except:
             balance_formatted = balance_ui
         
-        # Convert to USD
+        # сonvert to USD
         usd_data = await api.bnb_to_usd(balance_wei)
         balance_usd = usd_data["amount_usd"]
         

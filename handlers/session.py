@@ -14,7 +14,6 @@ from utils import bnb_to_wei, wei_to_bnb
 
 logger = logging.getLogger(__name__)
 
-# Path to welcome image
 WELCOME_IMAGE_PATH = Path(__file__).parent.parent / "assets" / "welcome.jpg"
 
 
@@ -26,8 +25,7 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
     
     token_ca = session.token_ca
     
-    # Get session status - only fetch from backend if session was actually started
-    status = "Not Started"  # Default value
+    status = "Not Started"
     status_text = "⚪️ Not Started"
     
     if session.backend_started:
@@ -43,16 +41,14 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
             else:
                 status_text = "⚪️ Not Started"
         except:
-            pass  # Use default values
+            pass
     
-    # Get balance
     try:
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_bnb = f"{float(balance_data['ui']):.4f}"
     except:
         balance_bnb = "N/A"
     
-    # Get current amounts
     pump_amount_bnb = "0.0"
     pump_indicator = "🔴"
     swap_amount_bnb = "0.0"
@@ -72,7 +68,6 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
     
     from keyboards.inline import get_pump_config_keyboard
     
-    # Create dexscreener link
     dex_link = f"https://dexscreener.com/bsc/{token_ca}"
     
     config_text = (
@@ -89,19 +84,15 @@ async def _update_config_menu(context: ContextTypes.DEFAULT_TYPE, telegram_id: i
         f"👇 Configure amounts or start pumping:"
     )
     
-    # Get saved message_id to update it
     message_id = context.user_data.get('config_message_id')
     chat_id = context.user_data.get('config_chat_id')
-    
-    # Check if pump and swap amounts are configured
+
     pump_configured = session.pump_amount_wei and float(session.pump_amount_wei) > 0
     swap_configured = session.swap_amount_wei and float(session.swap_amount_wei) > 0
-    
-    # Use paused status from local session if available
+
     display_status = "Paused" if session.is_paused else status
     
     if message_id and chat_id:
-        # Update existing message
         await context.bot.edit_message_text(
             text=config_text,
             chat_id=chat_id,
@@ -122,7 +113,6 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔍 Checking token...")
     
     try:
-        # Check if token is supported
         support_data = await api.check_token_supported(token_ca)
         
         if not support_data.get("is_supported", False):
@@ -135,9 +125,7 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return ConversationState.WAITING_TOKEN_CA
         
-        # Get pools information
         pools_data = await api.get_token_pools(token_ca)
-        # Backend returns {"pools": {"pairs": [...]}} but pairs is a list
         pools = pools_data.get("pools", {})
         if isinstance(pools, dict):
             pools_count = len(pools.get("pairs", []))
@@ -145,14 +133,11 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # If pools is already a list
             pools_count = len(pools) if isinstance(pools, list) else 0
         
-        # Save contract address
         session = session_storage.get(telegram_id)
         if session:
             session.token_ca = token_ca
         
-        # For new session, don't fetch old backend status
-        # Only check backend status if session was actually started on backend
-        status = "Not Started"  # Default value for new sessions
+        status = "Not Started"
         status_text = "⚪️ Not Started"
         
         if session and session.backend_started:
@@ -168,27 +153,25 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 else:
                     status_text = "⚪️ Not Started"
             except:
-                pass  # Use default values
+                pass
         
-        # Get current balance
         try:
             balance_data = await api.check_wallet_balance(telegram_id)
             balance_bnb = f"{float(balance_data['ui']):.4f}"
         except:
             balance_bnb = "N/A"
         
-        # Get current amounts from session or show as not configured
         pump_amount_bnb = "0.0"
-        pump_indicator = "🔴"  # red = not configured
+        pump_indicator = "🔴"
         swap_amount_bnb = "0.0"
         swap_indicator = "🔴"
-        delay_seconds = "1.0"  # default
+        delay_seconds = "1.0"
         delay_indicator = "🔴"
         
         if session:
             if session.pump_amount_wei and float(session.pump_amount_wei) > 0:
                 pump_amount_bnb = f"{float(session.pump_amount_wei) / 1e18:.4f}"
-                pump_indicator = "🟢"  # green = configured
+                pump_indicator = "🟢"
             if session.swap_amount_wei and float(session.swap_amount_wei) > 0:
                 swap_amount_bnb = f"{float(session.swap_amount_wei) / 1e18:.4f}"
                 swap_indicator = "🟢"
@@ -198,7 +181,6 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         from keyboards.inline import get_pump_config_keyboard
         
-        # Create dexscreener link
         dex_link = f"https://dexscreener.com/bsc/{token_ca}"
         
         config_message = await update.message.reply_text(
@@ -222,11 +204,9 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True
         )
         
-        # Save message_id for later updates
+        # save for updates and background job
         context.user_data['config_message_id'] = config_message.message_id
         context.user_data['config_chat_id'] = config_message.chat_id
-        
-        # Also save in bot_data for background job access
         context.application.bot_data[f'config_message_{telegram_id}'] = config_message.message_id
         context.application.bot_data[f'config_chat_{telegram_id}'] = config_message.chat_id
         
@@ -245,7 +225,6 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Receiving pump amount"""
     telegram_id = update.effective_user.id
     
-    # Delete previous error message if exists
     error_message_id = context.user_data.get('pump_amount_error_message_id')
     if error_message_id:
         try:
@@ -265,11 +244,9 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['pump_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_PUMP_AMOUNT
         
-        # Get current wallet balance
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_bnb = Decimal(balance_data["ui"])
         
-        # Check if pump amount exceeds 50% of balance
         max_allowed = balance_bnb / 2
         if pump_amount_bnb > max_allowed:
             error_msg = await update.message.reply_text(
@@ -282,25 +259,20 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['pump_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_PUMP_AMOUNT
         
-        # Delete user input message
         try:
             await update.message.delete()
         except:
             pass
         
-        # Convert BNB to Wei
         pump_amount_wei = bnb_to_wei(pump_amount_bnb)
         
-        # Convert to USD for display
         usd_data = await api.bnb_to_usd(pump_amount_wei)
         pump_amount_usd = usd_data["amount_usd"]
         
-        # Save amount
         session = session_storage.get(telegram_id)
         if session:
             session.pump_amount_wei = pump_amount_wei
         
-        # Update config menu
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -326,7 +298,6 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Receiving swap amount and launch confirmation"""
     telegram_id = update.effective_user.id
     
-    # Delete previous error message if exists
     error_message_id = context.user_data.get('swap_amount_error_message_id')
     if error_message_id:
         try:
@@ -346,20 +317,16 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['swap_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_SWAP_AMOUNT
         
-        # Delete user input message
         try:
             await update.message.delete()
         except:
             pass
         
-        # Convert BNB to Wei
         swap_amount_wei = bnb_to_wei(swap_amount_bnb)
         
-        # Convert to USD for display
         usd_data = await api.bnb_to_usd(swap_amount_wei)
         swap_amount_usd = usd_data["amount_usd"]
         
-        # Save amount
         session = session_storage.get(telegram_id)
         if not session:
             await update.message.reply_text("❌ Session expired. Start over with /start")
@@ -367,7 +334,6 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         session.swap_amount_wei = swap_amount_wei
         
-        # Update config menu
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -404,7 +370,6 @@ async def confirm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # Start session
         result = await api.start_session(
             telegram_id=telegram_id,
             token_ca=session.token_ca,
@@ -414,7 +379,6 @@ async def confirm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         if result.get("created", False):
-            # Get current status and balance
             try:
                 status_data = await api.get_session_status(telegram_id)
                 status = status_data.get("status", "InProcess")
@@ -426,7 +390,6 @@ async def confirm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 status = "InProcess"
                 balance_formatted = "N/A"
             
-            # Format status for display
             if status == "InProcess":
                 status_text = "🔄 In Progress"
             elif isinstance(status, dict):
@@ -452,7 +415,6 @@ async def confirm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Use /stop to stop it, then try again."
             )
         
-        # Clear session
         session_storage.delete(telegram_id)
         
     except Exception as e:
@@ -485,15 +447,12 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
     
     try:
-        # Get wallet info
         wallet_data = await api.get_or_create_wallet(telegram_id)
         wallet_address = wallet_data["wallet_dto"]["evm_address"]
         
-        # Check balance
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_ui = balance_data["ui"]
         
-        # Format balance to max 3 decimal places
         try:
             balance_formatted = f"{float(balance_ui):.3f}"
             balance_float = float(balance_ui)
@@ -503,7 +462,6 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"Refresh balance: {balance_float} BNB (>= 0.097: {balance_float >= 0.097})")
         
-        # If balance is now sufficient, update to "Ready to start" message with photo
         if balance_float >= 0.097:
             logger.info("Balance is sufficient, switching to ready message")
             welcome_text = (
@@ -514,12 +472,9 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Example: `0x718447E29B90D00461966D01E533Fa1b69574444`"
             )
             
-            # Replace message with photo and no button
             if WELCOME_IMAGE_PATH.exists():
                 logger.info("Deleting old message and sending new one with photo")
-                # Delete old message
                 await query.message.delete()
-                # Send new message with photo
                 with open(WELCOME_IMAGE_PATH, 'rb') as photo:
                     await context.bot.send_photo(
                         chat_id=telegram_id,
@@ -529,7 +484,6 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             else:
                 logger.info("Photo not found, editing message text")
-                # If message has photo (caption), need to delete and resend as text
                 try:
                     await query.message.delete()
                     await context.bot.send_message(
@@ -538,13 +492,11 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         parse_mode='Markdown'
                     )
                 except:
-                    # Fallback to edit if delete fails
                     await query.edit_message_text(
                         welcome_text,
                         parse_mode='Markdown'
                     )
         else:
-            # Balance still insufficient, just update the balance amount
             from keyboards.inline import get_refresh_keyboard
             from telegram.error import BadRequest
             
@@ -566,7 +518,6 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=get_refresh_keyboard()
                 )
             except BadRequest as e:
-                # If message is not modified (same content), just ignore
                 if "not modified" in str(e).lower():
                     pass
                 else:
@@ -574,7 +525,6 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         logger.error(f"Error refreshing balance: {e}")
-        # Don't try to edit message text if it's a photo message
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
@@ -588,16 +538,13 @@ async def refresh_session_status(update: Update, context: ContextTypes.DEFAULT_T
     try:
         from telegram.error import BadRequest
         
-        # Get session status
         status_data = await api.get_session_status(telegram_id)
         status = status_data.get("status", "Unknown")
         
-        # Get wallet balance
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_ui = balance_data["ui"]
         balance_formatted = f"{float(balance_ui):.3f}"
         
-        # Format status for display
         if status == "InProcess":
             status_text = "🔄 In Progress"
         elif isinstance(status, dict):
@@ -631,7 +578,6 @@ async def refresh_session_status(update: Update, context: ContextTypes.DEFAULT_T
                 reply_markup=get_session_status_keyboard()
             )
         except BadRequest as e:
-            # If message is not modified (same content), just ignore
             if "not modified" in str(e).lower():
                 pass
             else:
@@ -646,7 +592,6 @@ async def refresh_session_status(update: Update, context: ContextTypes.DEFAULT_T
                 reply_markup=get_session_status_keyboard()
             )
         except:
-            # If can't edit message, show alert instead
             await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
@@ -655,15 +600,12 @@ async def set_pump_amount_callback(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     telegram_id = update.effective_user.id
     
-    # Check if session is actively running (not just started before)
     session = session_storage.get(telegram_id)
     
-    # Only block if backend session exists AND is in progress AND not paused
     if session and session.backend_started and not session.is_paused:
         try:
             status_data = await api.get_session_status(telegram_id)
             status = status_data.get("status", "Not Started")
-            # Only block if status is exactly InProcess
             if status == "InProcess":
                 await query.answer("⚠️ Cannot change Pump Amount while session is running!", show_alert=True)
                 return ConversationState.WAITING_TOKEN_CA
@@ -736,7 +678,6 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receiving delay value"""
     telegram_id = update.effective_user.id
     
-    # Delete previous error message if exists
     error_message_id = context.user_data.get('delay_error_message_id')
     if error_message_id:
         try:
@@ -756,21 +697,17 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['delay_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_DELAY
         
-        # Delete user input message
         try:
             await update.message.delete()
         except:
             pass
         
-        # Convert seconds to milliseconds
         delay_millis = int(delay_seconds * 1000)
         
-        # Save delay
         session = session_storage.get(telegram_id)
         if session:
             session.delay_millis = delay_millis
         
-        # Update config menu
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -800,13 +737,11 @@ async def start_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     telegram_id = update.effective_user.id
     
     try:
-        # Get session data
         session = session_storage.get(telegram_id)
         if not session:
             await query.answer("❌ Session not found. Please start over with /start", show_alert=True)
             return ConversationState.WAITING_TOKEN_CA
         
-        # Validate that pump_amount and swap_amount are configured
         if not session.pump_amount_wei or float(session.pump_amount_wei) <= 0:
             await query.answer("⚠️ Please configure Pump Amount first!", show_alert=True)
             return ConversationState.WAITING_TOKEN_CA
@@ -817,7 +752,6 @@ async def start_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         await query.answer("🚀 Starting pump session...")
         
-        # Start the pump session
         result = await api.start_session(
             telegram_id=telegram_id,
             token_ca=session.token_ca,
@@ -825,15 +759,12 @@ async def start_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             swap_amount_wei=session.swap_amount_wei
         )
         
-        # Mark session as started on backend
         session.backend_started = True
         
-        # Clear completion notification flag for this user (if they're starting a new session)
         import main
         if telegram_id in main.notified_completions:
             main.notified_completions.remove(telegram_id)
         
-        # Update config menu to show new status
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -858,12 +789,10 @@ async def pause_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         result = await api.pause_session(telegram_id)
         
-        # Mark session as paused
         session = session_storage.get(telegram_id)
         if session:
             session.is_paused = True
         
-        # Update config menu to show Resume button
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -885,12 +814,10 @@ async def resume_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         result = await api.resume_session(telegram_id)
         
-        # Mark session as not paused
         session = session_storage.get(telegram_id)
         if session:
             session.is_paused = False
         
-        # Update config menu to show Pause button
         await _update_config_menu(
             context, 
             telegram_id, 

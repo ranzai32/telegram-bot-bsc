@@ -10,8 +10,8 @@ class UserSession:
     pump_amount_wei: str = ""
     swap_amount_wei: str = ""
     delay_millis: int = 1000
-    backend_started: bool = False  # Track if session was started on backend
-    is_paused: bool = False  # Track if session is currently paused
+    backend_started: bool = False  # track if session was started on backend
+    is_paused: bool = False  # track if session is currently paused
 
 
 class SessionStorage:
@@ -39,6 +39,4 @@ class SessionStorage:
         """Check if user session exists"""
         return telegram_id in self._sessions
 
-
-# Global session storage
 session_storage = SessionStorage()

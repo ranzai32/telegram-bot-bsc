@@ -11,7 +11,7 @@ class BackendAPI:
     
     def __init__(self):
         self.base_url = settings.api_base_url
-        # Increase timeout and add retries
+        # increase timeout and add retries
         self.client = httpx.AsyncClient(
             timeout=60.0,
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
@@ -20,7 +20,7 @@ class BackendAPI:
     async def close(self):
         await self.client.aclose()
     
-    # User endpoints
+    # user endpoints
     async def get_or_create_wallet(self, telegram_id: int) -> Dict[str, Any]:
         """Get or create user wallet"""
         url = f"{self.base_url}/user/{telegram_id}/wallet"
@@ -37,7 +37,7 @@ class BackendAPI:
         response.raise_for_status()
         return response.json()
     
-    # Token endpoints
+    # token endpoints
     async def check_token_supported(self, token_ca: str) -> Dict[str, Any]:
         """Check if token is supported"""
         response = await self.client.get(f"{self.base_url}/token/{token_ca}/is-supported")
@@ -50,7 +50,6 @@ class BackendAPI:
         response.raise_for_status()
         return response.json()
     
-    # Bot session endpoints
     async def start_session(
         self,
         telegram_id: int,
@@ -110,8 +109,7 @@ class BackendAPI:
         }
         response = await self.client.put(f"{self.base_url}/bot/session/swap-amount", json=payload)
         response.raise_for_status()
-    
-    # Price endpoints
+
     async def bnb_to_usd(self, amount_wei: str) -> Dict[str, Any]:
         """Convert BNB to USD"""
         payload = {"amount_wei": amount_wei}
@@ -119,6 +117,4 @@ class BackendAPI:
         response.raise_for_status()
         return response.json()
 
-
-# Global API client instance
 api = BackendAPI()
