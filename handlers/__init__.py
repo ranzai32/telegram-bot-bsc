@@ -14,7 +14,8 @@ from .session import (
     set_swap_amount_callback,
     set_delay_callback,
     start_pump_callback,
-    pause_pump_callback
+    pause_pump_callback,
+    resume_pump_callback
 )
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     'set_swap_amount_callback',
     'set_delay_callback',
     'start_pump_callback',
-    'pause_pump_callback'
+    'pause_pump_callback',
+    'resume_pump_callback'
 ]
