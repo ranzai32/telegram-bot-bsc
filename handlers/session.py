@@ -334,6 +334,16 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         session.swap_amount_wei = swap_amount_wei
         
+        # If session is already running, update swap amount on backend
+        if session.backend_started:
+            try:
+                await api.set_session_swap_amount(telegram_id, swap_amount_wei)
+            except Exception as e:
+                logger.error(f"Error updating swap amount on backend: {e}")
+                error_msg = await update.message.reply_text(
+                    f"⚠️ Warning: Could not update backend. Error: {str(e)}"
+                )
+        
         await _update_config_menu(
             context, 
             telegram_id, 
@@ -708,6 +718,16 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session = session_storage.get(telegram_id)
         if session:
             session.delay_millis = delay_millis
+            
+            # If session is already running, update delay on backend
+            if session.backend_started:
+                try:
+                    await api.set_session_delay(telegram_id, delay_millis)
+                except Exception as e:
+                    logger.error(f"Error updating delay on backend: {e}")
+                    error_msg = await update.message.reply_text(
+                        f"⚠️ Warning: Could not update backend. Error: {str(e)}"
+                    )
         
         await _update_config_menu(
             context, 

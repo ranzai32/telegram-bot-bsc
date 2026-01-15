@@ -42,21 +42,20 @@ def get_pump_config_keyboard(session_status: str = "Not Started", pump_configure
         InlineKeyboardButton("⏱️ Set Delay", callback_data="set_delay")
     ]
     
-    # add Pump Amount button only if session is not running
-    if session_status != "InProcess":
+    # add Pump Amount button only if session is not running or paused
+    if session_status not in ["InProcess", "Paused"]:
         first_row.insert(0, InlineKeyboardButton("💰 Pump Amount", callback_data="set_pump_amount"))
     
     # second row - action buttons
     second_row = []
     
     if session_status == "InProcess":
-        # session is running - show START (disabled) and Pause
+        # session is running - show only Pause button (no START)
         second_row = [
-            InlineKeyboardButton("🚀 START", callback_data="start_pump"),
             InlineKeyboardButton("⏸ Pause", callback_data="pause_pump")
         ]
     elif session_status == "Paused":
-        # session is paused - show Resume button
+        # session is paused - show only Resume button (no START)
         second_row = [
             InlineKeyboardButton("▶️ Resume", callback_data="resume_pump")
         ]
@@ -66,16 +65,13 @@ def get_pump_config_keyboard(session_status: str = "Not Started", pump_configure
             InlineKeyboardButton("▶️ Resume", callback_data="resume_pump"),
         ]
     else:
-        # not started - show START (disabled if not configured) and Pause
+        # not started - show START (disabled if not configured)
         if pump_configured and swap_configured:
             start_button = InlineKeyboardButton("🚀 START", callback_data="start_pump")
         else:
             start_button = InlineKeyboardButton("❌ Not Ready", callback_data="start_pump")
         
-        second_row = [
-            start_button,
-            InlineKeyboardButton("⏸ Pause", callback_data="pause_pump")
-        ]
+        second_row = [start_button]
     
     keyboard = [first_row, second_row]
     return InlineKeyboardMarkup(keyboard)
