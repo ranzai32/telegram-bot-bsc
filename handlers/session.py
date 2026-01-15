@@ -244,21 +244,6 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['pump_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_PUMP_AMOUNT
         
-        balance_data = await api.check_wallet_balance(telegram_id)
-        balance_bnb = Decimal(balance_data["ui"])
-        
-        max_allowed = balance_bnb / 2
-        if pump_amount_bnb > max_allowed:
-            error_msg = await update.message.reply_text(
-                f"❌ Pump Amount cannot exceed 50% of your balance\n\n"
-                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n"
-                f"📊 Maximum Allowed: **{max_allowed:.4f} BNB**\n\n"
-                f"Please enter a smaller amount:",
-                parse_mode='Markdown'
-            )
-            context.user_data['pump_amount_error_message_id'] = error_msg.message_id
-            return ConversationState.WAITING_PUMP_AMOUNT
-        
         try:
             await update.message.delete()
         except:
@@ -314,6 +299,21 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         if swap_amount_bnb <= 0:
             error_msg = await update.message.reply_text("❌ Amount must be greater than 0. Try again:")
+            context.user_data['swap_amount_error_message_id'] = error_msg.message_id
+            return ConversationState.WAITING_SWAP_AMOUNT
+        
+        balance_data = await api.check_wallet_balance(telegram_id)
+        balance_bnb = Decimal(balance_data["ui"])
+        
+        max_allowed = balance_bnb / 2
+        if swap_amount_bnb > max_allowed:
+            error_msg = await update.message.reply_text(
+                f"❌ Swap Amount cannot exceed 50% of your balance\n\n"
+                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n"
+                f"📊 Maximum Allowed: **{max_allowed:.4f} BNB**\n\n"
+                f"Please enter a smaller amount:",
+                parse_mode='Markdown'
+            )
             context.user_data['swap_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_SWAP_AMOUNT
         
@@ -623,8 +623,7 @@ async def set_pump_amount_callback(update: Update, context: ContextTypes.DEFAULT
         "This is the **total budget** for your volume pumping session.\n\n"
         "💡 The bot will use this amount to create buy/sell transactions,\n"
         "generating trading volume for your token.\n\n"
-        "⚠️ **Important Limits:**\n"
-        "• Maximum: **50% of your wallet balance**\n"
+        "⚠️ **Important:**\n"
         "• Cannot be changed after session starts\n\n"
         "📝 Enter pump amount in BNB:\n\n"
         "Example: 0.5",
@@ -645,9 +644,11 @@ async def set_swap_amount_callback(update: Update, context: ContextTypes.DEFAULT
     
     await query.edit_message_text(
         "💱 **Set Swap Amount**\n\n"
-        "Enter the amount in BNB for each swap operation.\n"
-        "Example: 0.01\n\n"
-        "This is the amount used per individual swap transaction.",
+        "Enter the amount in BNB for each swap operation.\n\n"
+        "⚠️ **Important Limits:**\n"
+        "• Maximum: **50% of your wallet balance**\n\n"
+        "📝 Enter swap amount in BNB:\n\n"
+        "Example: 0.01",
         parse_mode='Markdown'
     )
     

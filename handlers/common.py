@@ -75,9 +75,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationState.WAITING_TOKEN_CA
         
     except Exception as e:
-        logger.error(f"Error in start command: {e}")
+        logger.error(f"Error in start command: {e}", exc_info=True)
         await update.message.reply_text(
-            "❌ An error occurred while creating the wallet. Please try again later."
+            f"❌ An error occurred while creating the wallet. Please try again later.\n\nError: {str(e)}"
         )
         return ConversationHandler.END
 
