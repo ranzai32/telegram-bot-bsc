@@ -109,6 +109,13 @@ class BackendAPI:
         }
         response = await self.client.put(f"{self.base_url}/bot/session/swap-amount", json=payload)
         response.raise_for_status()
+    
+    async def estimate_max_swap_amount(self, pump_amount_wei: str) -> Dict[str, Any]:
+        """Estimate maximum swap amount based on pump amount"""
+        payload = {"pump_amount_wei": pump_amount_wei}
+        response = await self.client.post(f"{self.base_url}/bot/session/swap-amount/max", json=payload)
+        response.raise_for_status()
+        return response.json()
 
     async def bnb_to_usd(self, amount_wei: str) -> Dict[str, Any]:
         """Convert BNB to USD"""

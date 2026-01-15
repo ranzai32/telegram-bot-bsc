@@ -244,6 +244,21 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['pump_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_PUMP_AMOUNT
         
+        # сheck that pump amount doesn't exceed balance
+        balance_data = await api.check_wallet_balance(telegram_id)
+        balance_bnb = Decimal(balance_data["ui"])
+        
+        if pump_amount_bnb > balance_bnb:
+            error_msg = await update.message.reply_text(
+                f"❌ Pump Amount cannot exceed your balance\n\n"
+                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n"
+                f"📊 Maximum Allowed: **{balance_bnb:.4f} BNB**\n\n"
+                f"Please enter a smaller amount:",
+                parse_mode='Markdown'
+            )
+            context.user_data['pump_amount_error_message_id'] = error_msg.message_id
+            return ConversationState.WAITING_PUMP_AMOUNT
+        
         try:
             await update.message.delete()
         except:
@@ -257,6 +272,9 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         session = session_storage.get(telegram_id)
         if session:
             session.pump_amount_wei = pump_amount_wei
+        
+        # reset max swap amount cache when pump amount changes
+        context.user_data.pop('max_swap_amount_wei', None)
         
         await _update_config_menu(
             context, 
@@ -302,15 +320,15 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['swap_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_SWAP_AMOUNT
         
-        balance_data = await api.check_wallet_balance(telegram_id)
-        balance_bnb = Decimal(balance_data["ui"])
+        # check against maximum allowed swap amount
+        max_swap_amount_wei = context.user_data.get('max_swap_amount_wei', '0')
+        max_allowed_bnb = Decimal(max_swap_amount_wei) / Decimal('1000000000000000000')
         
-        max_allowed = balance_bnb / 2
-        if swap_amount_bnb > max_allowed:
+        if swap_amount_bnb > max_allowed_bnb:
             error_msg = await update.message.reply_text(
-                f"❌ Swap Amount cannot exceed 50% of your balance\n\n"
-                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n"
-                f"📊 Maximum Allowed: **{max_allowed:.4f} BNB**\n\n"
+                f"❌ Swap Amount exceeds maximum allowed\n\n"
+                f"📊 Maximum Allowed: **{max_allowed_bnb:.6f} BNB**\n"
+                f"💡 This is calculated based on your Pump Amount\n\n"
                 f"Please enter a smaller amount:",
                 parse_mode='Markdown'
             )
@@ -334,7 +352,7 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         session.swap_amount_wei = swap_amount_wei
         
-        # If session is already running, update swap amount on backend
+        # if session is already running, update swap amount on backend
         if session.backend_started:
             try:
                 await api.set_session_swap_amount(telegram_id, swap_amount_wei)
@@ -624,7 +642,6 @@ async def set_pump_amount_callback(update: Update, context: ContextTypes.DEFAULT
     
     await query.answer()
     
-    # Save message_id to update it later
     context.user_data['config_message_id'] = query.message.message_id
     context.user_data['config_chat_id'] = query.message.chat_id
     
@@ -646,9 +663,33 @@ async def set_pump_amount_callback(update: Update, context: ContextTypes.DEFAULT
 async def set_swap_amount_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle Swap Amount button"""
     query = update.callback_query
-    await query.answer()
+    telegram_id = update.effective_user.id
     
-    # Save message_id to update it later
+    # check if pump amount is set first
+    session = session_storage.get(telegram_id)
+    if not session or not session.pump_amount_wei or float(session.pump_amount_wei) <= 0:
+        await query.answer("⚠️ Please set Pump Amount first!", show_alert=True)
+        return ConversationState.WAITING_TOKEN_CA
+    
+    await query.answer()
+
+    # use cached max swap amount if available, otherwise fetch from backend
+    max_swap_amount_wei = context.user_data.get('max_swap_amount_wei')
+    
+    if not max_swap_amount_wei:
+        try:
+            max_swap_data = await api.estimate_max_swap_amount(session.pump_amount_wei)
+            max_swap_amount_wei = max_swap_data["swap_amount_wei"]
+            
+            # save max swap amount in context for future use
+            context.user_data['max_swap_amount_wei'] = max_swap_amount_wei
+        except Exception as e:
+            logger.error(f"Error estimating max swap amount: {e}")
+            max_swap_amount_wei = "0"
+            context.user_data['max_swap_amount_wei'] = "0"
+    
+    max_swap_amount_bnb = float(max_swap_amount_wei) / 1e18
+    
     context.user_data['config_message_id'] = query.message.message_id
     context.user_data['config_chat_id'] = query.message.chat_id
     
@@ -656,7 +697,8 @@ async def set_swap_amount_callback(update: Update, context: ContextTypes.DEFAULT
         "💱 **Set Swap Amount**\n\n"
         "Enter the amount in BNB for each swap operation.\n\n"
         "⚠️ **Important Limits:**\n"
-        "• Maximum: **50% of your wallet balance**\n\n"
+        f"• Maximum: **{max_swap_amount_bnb:.6f} BNB**\n"
+        "  (calculated based on your Pump Amount)\n\n"
         "📝 Enter swap amount in BNB:\n\n"
         "Example: 0.01",
         parse_mode='Markdown'
@@ -670,7 +712,7 @@ async def set_delay_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     
-    # Save message_id to update it later
+    # save message_id to update it later
     context.user_data['config_message_id'] = query.message.message_id
     context.user_data['config_chat_id'] = query.message.chat_id
     
@@ -719,7 +761,7 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if session:
             session.delay_millis = delay_millis
             
-            # If session is already running, update delay on backend
+            # if session is already running, update delay on backend
             if session.backend_started:
                 try:
                     await api.set_session_delay(telegram_id, delay_millis)
