@@ -8,6 +8,7 @@ from api_client import api
 from models import session_storage
 from states import ConversationState
 from keyboards.inline import get_refresh_keyboard
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             balance_formatted = balance_ui
             balance_float = 0.0
 
-        if balance_float >= 0.097:
+        min_deposit = settings.min_deposit_bnb
+        if balance_float >= min_deposit - 0.003:
             welcome_text = (
                 f"💼 Your wallet: `{wallet_address}`\n"
                 f"💰 Current balance: {balance_formatted} BNB\n\n"
@@ -43,17 +45,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             welcome_text = (
-                f"⚡️Save 30% vs others while keeping your chart fully organic — from just 0.097BNB!\n\n"
+                f"⚡️Save 30% vs others while keeping your chart fully organic — from just {settings.min_deposit_bnb} BNB!\n\n"
                 f"— 🌿Organic & randomized: Unique wallets, random buy/sell and timing — no bot-look, no spam\n\n"
                 f"— 🛠Manage it your way: Run with battle-tested defaults or customize your own settings — your chart, your rules\n\n"
                 f"🎁 Free Microbots and Bumps included\n\n"
-                f"➔ Deposit to this address to start:\n"
+                f"➞ Deposit to this address to start:\n"
                 f"`{wallet_address}`\n\n"
                 f"💰 Current balance: {balance_formatted} BNB\n"
-                f"⚠️ Minimum required: 0.097 BNB"
+                f"⚠️ Minimum required: {settings.min_deposit_bnb} BNB"
             )
         
-        reply_markup = get_refresh_keyboard() if balance_float < 0.097 else None
+        reply_markup = get_refresh_keyboard() if balance_float < min_deposit - 0.003 else None
         
         if WELCOME_IMAGE_PATH.exists():
             with open(WELCOME_IMAGE_PATH, 'rb') as photo:

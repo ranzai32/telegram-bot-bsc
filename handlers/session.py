@@ -11,6 +11,7 @@ from models import session_storage
 from states import ConversationState
 from keyboards import get_confirmation_keyboard, get_session_status_keyboard
 from utils import bnb_to_wei, wei_to_bnb
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -488,9 +489,10 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             balance_formatted = balance_ui
             balance_float = 0.0
         
-        logger.info(f"Refresh balance: {balance_float} BNB (>= 0.097: {balance_float >= 0.097})")
+        min_deposit = settings.min_deposit_bnb
+        logger.info(f"Refresh balance: {balance_float} BNB (>= {min_deposit - 0.003}: {balance_float >= min_deposit - 0.003})")
         
-        if balance_float >= 0.097:
+        if balance_float >= min_deposit - 0.003:
             logger.info("Balance is sufficient, switching to ready message")
             welcome_text = (
                 f"💼 Your wallet: `{wallet_address}`\n"
@@ -529,14 +531,14 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from telegram.error import BadRequest
             
             welcome_text = (
-                f"⚡️Save 30% vs others while keeping your chart fully organic — from just 0.1BNB!\n\n"
+                f"⚡️Save 30% vs others while keeping your chart fully organic — from just {settings.min_deposit_bnb} BNB!\n\n"
                 f"— 🌿Organic & randomized: Unique wallets, random buy/sell and timing — no bot-look, no spam\n\n"
                 f"— 🛠Manage it your way: Run with battle-tested defaults or customize your own settings — your chart, your rules\n\n"
                 f"🎁 Free Microbots and Bumps included\n\n"
                 f"➔ Deposit to this address to start:\n"
                 f"`{wallet_address}`\n\n"
                 f"💰 Current balance: {balance_formatted} BNB\n"
-                f"⚠️ Minimum required: 0.097 BNB"
+                f"⚠️ Minimum required: {settings.min_deposit_bnb} BNB"
             )
             
             try:
