@@ -216,8 +216,11 @@ async def receive_token_ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error checking token: {e}")
         await update.message.reply_text(
-            f"❌ Error checking token: {str(e)}\n"
-            "Check the contract address and try again."
+            "❌ Unable to verify this token\n\n"
+            "Please check the contract address and try again.\n\n"
+            "Need help? Contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
         return ConversationState.WAITING_TOKEN_CA
 
@@ -245,15 +248,26 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['pump_amount_error_message_id'] = error_msg.message_id
             return ConversationState.WAITING_PUMP_AMOUNT
         
+        # check minimum deposit requirement(to be not less than min_deposit)
+        min_deposit = Decimal(str(settings.min_deposit_bnb))
+        if pump_amount_bnb < min_deposit:
+            error_msg = await update.message.reply_text(
+                f"❌ Pump Amount is too low\n\n"
+                f"📊 Minimum Required: **{settings.min_deposit_bnb} BNB**\n\n"
+                f"Please enter a valid amount:",
+                parse_mode='Markdown'
+            )
+            context.user_data['pump_amount_error_message_id'] = error_msg.message_id
+            return ConversationState.WAITING_PUMP_AMOUNT
+        
         # сheck that pump amount doesn't exceed balance
         balance_data = await api.check_wallet_balance(telegram_id)
         balance_bnb = Decimal(balance_data["ui"])
         
         if pump_amount_bnb > balance_bnb:
             error_msg = await update.message.reply_text(
-                f"❌ Pump Amount cannot exceed your balance\n\n"
-                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n"
-                f"📊 Maximum Allowed: **{balance_bnb:.4f} BNB**\n\n"
+                f"❌ Pump Amount exceeds your balance\n\n"
+                f"💰 Your Balance: **{balance_bnb:.4f} BNB**\n\n"
                 f"Please enter a smaller amount:",
                 parse_mode='Markdown'
             )
@@ -292,9 +306,13 @@ async def receive_pump_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
         return ConversationState.WAITING_PUMP_AMOUNT
     except Exception as e:
         logger.error(f"Error processing pump amount: {e}")
-        await update.message.reply_text(
-            f"❌ Error: {str(e)}\nTry again:"
+        error_msg = await update.message.reply_text(
+            "❌ Unable to process your request\n\n"
+            "Please try again or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
+        context.user_data['pump_amount_error_message_id'] = error_msg.message_id
         return ConversationState.WAITING_PUMP_AMOUNT
 
 
@@ -360,7 +378,10 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
             except Exception as e:
                 logger.error(f"Error updating swap amount on backend: {e}")
                 error_msg = await update.message.reply_text(
-                    f"⚠️ Warning: Could not update backend. Error: {str(e)}"
+                    "⚠️ Unable to update settings\n\n"
+                    "Please try again or contact [our support](https://t.me/sullydevx)",
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
                 )
         
         await _update_config_menu(
@@ -380,7 +401,10 @@ async def receive_swap_amount(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception as e:
         logger.error(f"Error processing swap amount: {e}")
         error_msg = await update.message.reply_text(
-            f"❌ Error: {str(e)}\nTry again:"
+            "❌ Unable to process your request\n\n"
+            "Please try again or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
         context.user_data['swap_amount_error_message_id'] = error_msg.message_id
         return ConversationState.WAITING_SWAP_AMOUNT
@@ -449,8 +473,10 @@ async def confirm_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error starting session: {e}")
         await query.edit_message_text(
-            f"❌ Error starting session: {str(e)}\n"
-            "Try again with /start"
+            "❌ Unable to start the session\n\n"
+            "Please try again with /start or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
 
 
@@ -555,7 +581,7 @@ async def refresh_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         logger.error(f"Error refreshing balance: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.answer("❌ Unable to refresh balance. Contact our support: @sullydevx", show_alert=True)
 
 
 async def refresh_session_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -617,12 +643,14 @@ async def refresh_session_status(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"Error refreshing session status: {e}")
         try:
             await query.edit_message_text(
-                f"❌ Error getting status: {str(e)}\n"
-                "The session may have ended or not been found.",
-                reply_markup=get_session_status_keyboard()
+                "❌ Unable to get session status\n\n"
+                "The session may have ended. Contact [our support](https://t.me/sullydevx) if you need help.",
+                parse_mode='Markdown',
+                reply_markup=get_session_status_keyboard(),
+                disable_web_page_preview=True
             )
         except:
-            await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+            await query.answer("❌ Unable to get status. Contact our support: @sullydevx", show_alert=True)
 
 
 async def set_pump_amount_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -770,7 +798,10 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e:
                     logger.error(f"Error updating delay on backend: {e}")
                     error_msg = await update.message.reply_text(
-                        f"⚠️ Warning: Could not update backend. Error: {str(e)}"
+                        "⚠️ Unable to update settings\n\n"
+                        "Please try again or contact [our support](https://t.me/sullydevx)",
+                        parse_mode='Markdown',
+                        disable_web_page_preview=True
                     )
         
         await _update_config_menu(
@@ -790,7 +821,10 @@ async def receive_delay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error processing delay: {e}")
         error_msg = await update.message.reply_text(
-            f"❌ Error: {str(e)}\nTry again:"
+            "❌ Unable to process your request\n\n"
+            "Please try again or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
         context.user_data['delay_error_message_id'] = error_msg.message_id
         return ConversationState.WAITING_DELAY
@@ -840,7 +874,7 @@ async def start_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     except Exception as e:
         logger.error(f"Error starting pump: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.answer("❌ Unable to start pump. Contact our support: @sullydevx", show_alert=True)
         return ConversationState.WAITING_TOKEN_CA
 
 
@@ -866,7 +900,7 @@ async def pause_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     except Exception as e:
         logger.error(f"Error pausing pump: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.answer("❌ Unable to pause pump. Contact our support: @sullydevx", show_alert=True)
 
 
 async def resume_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -891,4 +925,4 @@ async def resume_pump_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         
     except Exception as e:
         logger.error(f"Error resuming pump: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.answer("❌ Unable to resume pump. Contact our support: @sullydevx", show_alert=True)

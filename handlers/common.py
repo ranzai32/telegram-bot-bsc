@@ -79,7 +79,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in start command: {e}", exc_info=True)
         await update.message.reply_text(
-            f"❌ An error occurred while creating the wallet. Please try again later.\n\nError: {str(e)}"
+            "❌ Unable to initialize your wallet\n\n"
+            "Please try again or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
         return ConversationHandler.END
 
@@ -146,5 +149,8 @@ async def   balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error checking balance: {e}")
         await update.message.reply_text(
-            f"❌ Error checking balance: {str(e)}"
+            "❌ Unable to check your balance\n\n"
+            "Please try again or contact [our support](https://t.me/sullydevx)",
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
